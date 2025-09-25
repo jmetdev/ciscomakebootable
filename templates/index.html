@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+    <title>ISO Bootable Maker</title>
+    
+    <!-- Tabler CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@tabler/icons@2.40.0/iconfont/tabler-icons.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS for step animations -->
+    <style>
+        /* Animation classes */
+        .spinning { animation: spin 1s linear infinite; }
+        .pulse { animation: pulse 1.5s ease-in-out infinite; }
+        .bounce { animation: bounce 1s ease-in-out infinite; }
+        .wiggle { animation: wiggle 0.5s ease-in-out infinite; }
+        .glow { animation: glow 2s ease-in-out infinite alternate; }
+        
+        /* Loading spinner animation */
+        .loading-spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #206bc4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Keyframe animations */
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-3px); } 60% { transform: translateY(-2px); } }
+        @keyframes wiggle { 0%, 7% { transform: rotateZ(0); } 15% { transform: rotateZ(-15deg); } 20% { transform: rotateZ(10deg); } 25% { transform: rotateZ(-10deg); } 30% { transform: rotateZ(6deg); } 35% { transform: rotateZ(-4deg); } 40%, 100% { transform: rotateZ(0); } }
+        @keyframes glow { from { box-shadow: 0 0 5px rgba(13, 110, 253, 0.5); } to { box-shadow: 0 0 15px rgba(13, 110, 253, 0.8); } }
+        
+        /* Clean step list using Tabler.io classes */
+        .step-list .list-group-item {
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease;
+        }
+        
+        .step-list .list-group-item.pending {
+            border-left-color: #dee2e6;
+        }
+        
+        .step-list .list-group-item.in-progress {
+            border-left-color: #206bc4;
+            background-color: rgba(32, 107, 196, 0.05);
+        }
+        
+        .step-list .list-group-item.completed {
+            border-left-color: #2fb344;
+            background-color: rgba(47, 179, 68, 0.05);
+        }
+        
+        .step-list .list-group-item.error {
+            border-left-color: #dc2626;
+            background-color: rgba(220, 38, 38, 0.05);
+        }
+        
+        .step-icon {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+        }
+        
+        .step-icon.pending {
+            background-color: #f1f3f4;
+            color: #6c757d;
+        }
+        
+        .step-icon.in-progress {
+            background-color: #206bc4;
+            color: white;
+        }
+        
+        .step-icon.completed {
+            background-color: #2fb344;
+            color: white;
+        }
+        
+        .step-icon.error {
+            background-color: #dc2626;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <!-- Navbar -->
+        <header class="navbar navbar-expand-md navbar-light d-print-none">
+            <div class="container-xl">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <h1 class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
+                    <i class="ti ti-disc"></i>
+                    ISO Bootable Maker
+                </h1>
+            </div>
+        </header>
+        
+        <div class="page-wrapper">
+            <!-- Page header -->
+            <div class="page-header d-print-none">
+                <div class="container-xl">
+                    <div class="row g-2 align-items-center">
+                        <div class="col">
+                            <h2 class="page-title">
+                                Create Bootable ISO
+                            </h2>
+                            <div class="text-muted mt-1">Upload an ISO file to make it bootable</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Page body -->
+            <div class="page-body">
+                <div class="container-xl">
+                    <div class="row row-cards">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="ti ti-upload me-2"></i>
+                                        Upload ISO File
+                                    </h3>
+                                </div>
+                                <div class="card-body">
+                                    <form id="uploadForm" enctype="multipart/form-data">
+                                        <div class="mb-3">
+                                            <label class="form-label">Select ISO File</label>
+                                            <input type="file" class="form-control" id="isoFile" name="file" accept=".iso" required>
+                                            <div class="form-hint">Maximum file size: 16GB. Only .iso files are allowed.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <button type="submit" class="btn btn-primary" id="uploadBtn">
+                                                <i class="ti ti-upload me-2"></i>
+                                                Process ISO
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Progress Section -->
+                        <div class="col-12" id="progressSection" style="display: none;">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="ti ti-loader me-2"></i>
+                                        Processing ISO
+                                    </h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="text-muted mb-3">Please wait while we process your ISO file. This may take several minutes depending on the file size.</div>
+                                    
+                                    <!-- File Upload Progress -->
+                                    <div class="file-upload-progress mb-3" id="fileUploadProgress" style="display: none;">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="fw-semibold">Uploading file...</span>
+                                            <span class="text-muted" id="fileSizeDisplay"></span>
+                                        </div>
+                                        <div class="progress">
+                                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                                 id="fileUploadProgressBar" 
+                                                 role="progressbar" 
+                                                 style="width: 0%" 
+                                                 aria-valuenow="0" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100"></div>
+                                        </div>
+                                    </div>
+                                    
+                                                                                    <!-- Product Found Flash Alert -->
+                                                <div class="product-found-alert mb-3" id="productFoundAlert" style="display: none;">
+                                                    <div class="alert alert-success alert-dismissible" role="alert">
+                                                        <i class="ti ti-check-circle me-2"></i>
+                                                        <strong>Product Found:</strong> <span id="productFoundName"></span>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Product Information DataGrid -->
+                                                <div class="product-info mb-3" id="productInfoSection" style="display: none;">
+                                                    <div class="card">
+                                                        <div class="card-header">
+                                                            <h4 class="h5 mb-0">
+                                                                <i class="ti ti-info-circle me-2"></i>
+                                                                Product Information
+                                                            </h4>
+                                                        </div>
+                                                        <div class="card-body">
+                                                            <div class="table-responsive">
+                                                                <table class="table table-vcenter card-table">
+                                                                    <tbody id="productDetails">
+                                                                        <!-- Product details will be populated here -->
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                    
+                                    <!-- Step Progress -->
+                                    <div class="step-progress">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <i class="ti ti-list-check me-2 text-primary"></i>
+                                            <h4 class="h5 mb-0">Processing Steps</h4>
+                                        </div>
+                                        <div class="text-muted mb-3">Track the progress of your ISO processing workflow.</div>
+                                        
+                                        <!-- Progress Steps Container -->
+                                        <div class="card">
+                                            <div class="card-body p-0">
+                                                <div class="list-group list-group-flush step-list" id="stepList">
+                                                    <!-- Steps will be populated here -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Results Section -->
+                        <div class="col-12" id="resultsSection" style="display: none;">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="ti ti-check me-2"></i>
+                                        Processing Complete
+                                    </h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-success" role="alert">
+                                        <h4 class="alert-title">Success!</h4>
+                                        <div class="text-muted">Your ISO file has been processed successfully.</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Output File:</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="outputFileName" readonly>
+                                            <button class="btn btn-outline-primary" type="button" id="downloadBtn">
+                                                <i class="ti ti-download me-2"></i>
+                                                Download
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Error Section -->
+                        <div class="col-12" id="errorSection" style="display: none;">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="ti ti-alert-circle me-2"></i>
+                                        Processing Error
+                                    </h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-danger" role="alert">
+                                        <h4 class="alert-title">Error occurred!</h4>
+                                        <div class="text-muted" id="errorMessage"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Section - Below Upload ISO Card -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <!-- Results Section -->
+                <div class="col-12" id="resultsSection" style="display: none;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="ti ti-check me-2"></i>
+                                Processing Complete
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-success" role="alert">
+                                <h4 class="alert-title">Success!</h4>
+                                <div class="text-muted">Your ISO file has been processed successfully.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Output File:</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="outputFileName" readonly>
+                                    <button class="btn btn-outline-primary" type="button" id="downloadBtn">
+                                        <i class="ti ti-download me-2"></i>
+                                        Download
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Error Section -->
+                <div class="col-12" id="errorSection" style="display: none;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="ti ti-alert-circle me-2"></i>
+                                Processing Error
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-danger" role="alert">
+                                <h4 class="alert-title">Error occurred!</h4>
+                                <div class="text-muted" id="errorMessage"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabler JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/js/tabler.min.js"></script>
+    
+    <script>
+        // Step status polling
+        let stepPollingInterval = null;
+        
+        // File size formatting function
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Update file upload progress
+        function updateFileUploadProgress(percent, uploadedBytes = 0, totalBytes = 0) {
+            const progressBar = document.getElementById('fileUploadProgressBar');
+            const fileSizeDisplay = document.getElementById('fileSizeDisplay');
+            
+            progressBar.style.width = percent + '%';
+            progressBar.setAttribute('aria-valuenow', percent);
+            
+            if (totalBytes > 0) {
+                fileSizeDisplay.textContent = `${formatFileSize(uploadedBytes)} / ${formatFileSize(totalBytes)}`;
+            }
+        }
+        
+        function startStepPolling() {
+            const stepList = document.getElementById('stepList');
+            
+            // Clear previous steps
+            stepList.innerHTML = '<div class="text-muted">Starting step tracking...</div>';
+            
+            // Start polling for step updates
+            stepPollingInterval = setInterval(updateSteps, 1000);
+            
+            // Initial update
+            updateSteps();
+        }
+        
+        function stopStepPolling() {
+            if (stepPollingInterval) {
+                clearInterval(stepPollingInterval);
+                stepPollingInterval = null;
+            }
+        }
+        
+        function updateSteps() {
+            fetch('/step-status')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Step status update:', data); // Debug log
+                    const stepList = document.getElementById('stepList');
+                    stepList.innerHTML = '';
+                    
+                    // Define steps in chronological order with animated icons
+                    const stepConfig = {
+                        'upload': { label: 'Upload File', icon: 'ti-upload', animation: 'pulse' },
+                        'setup': { label: 'Setup Directories', icon: 'ti-folder-plus', animation: 'bounce' },
+                        'extract': { label: 'Extract ISO', icon: 'ti-archive', animation: 'spin' },
+                        'copy': { label: 'Copy Contents', icon: 'ti-files', animation: 'wiggle' },
+                        'analyze': { label: 'Analyze Product', icon: 'ti-search', animation: 'pulse' },
+                        'bootloader': { label: 'Check Bootloader', icon: 'ti-settings', animation: 'spin' },
+                        'generate': { label: 'Generate ISO', icon: 'ti-tool', animation: 'glow' },
+                        'cleanup': { label: 'Cleanup', icon: 'ti-trash', animation: 'bounce' },
+                        'complete': { label: 'Complete', icon: 'ti-check', animation: 'pulse' }
+                    };
+                    
+                    // Process steps in chronological order
+                    Object.keys(stepConfig).forEach(key => {
+                        const step = data[key];
+                        const config = stepConfig[key];
+                        
+                        const item = document.createElement('div');
+                        item.className = `list-group-item list-group-item-action d-flex align-items-center`;
+                        
+                        let statusClass = '';
+                        let iconClass = '';
+                        let badgeText = '';
+                        let badgeClass = '';
+                        let animationClass = '';
+                        
+                        switch (step.status) {
+                            case 'completed':
+                                statusClass = 'completed';
+                                iconClass = 'ti-check';
+                                badgeText = 'Completed';
+                                badgeClass = 'bg-success';
+                                animationClass = '';
+                                break;
+                            case 'error':
+                                statusClass = 'error';
+                                iconClass = 'ti-x';
+                                badgeText = 'Error';
+                                badgeClass = 'bg-danger';
+                                animationClass = '';
+                                break;
+                            case 'in_progress':
+                                statusClass = 'in-progress';
+                                iconClass = '';
+                                badgeText = 'Processing';
+                                badgeClass = 'bg-primary';
+                                animationClass = '';
+                                break;
+                            default:
+                                statusClass = 'pending';
+                                iconClass = config.icon;
+                                badgeText = 'Pending';
+                                badgeClass = 'bg-secondary';
+                                animationClass = '';
+                        }
+                        
+                        item.classList.add(statusClass);
+                        
+                        let iconHtml = '';
+                        if (step.status === 'in_progress') {
+                            iconHtml = '<div class="loading-spinner"></div>';
+                        } else {
+                            iconHtml = `<i class="ti ${iconClass} ${animationClass}"></i>`;
+                        }
+                        
+                        item.innerHTML = `
+                            <div class="step-icon ${statusClass} me-3">
+                                ${iconHtml}
+                            </div>
+                            <div class="flex-fill">
+                                <div class="fw-semibold">${config.label}</div>
+                                <div class="text-muted small">${step.message}</div>
+                            </div>
+                            <span class="badge ${badgeClass}">${badgeText}</span>
+                        `;
+                        
+                        stepList.appendChild(item);
+                    });
+                })
+                .catch(error => {
+                    console.log('Error fetching step status:', error);
+                });
+        }
+        
+        function updateProductInfo() {
+            // Fetch product information from the backend
+            fetch('/product-info')
+                .then(response => response.json())
+                .then(data => {
+                    const productInfoSection = document.getElementById('productInfoSection');
+                    const productDetails = document.getElementById('productDetails');
+                    const productFoundAlert = document.getElementById('productFoundAlert');
+                    const productFoundName = document.getElementById('productFoundName');
+                    
+                    if (data.product_info) {
+                        // Show product info card
+                        productInfoSection.style.display = 'block';
+                        
+                        // Show product found flash alert
+                        productFoundName.textContent = data.product_info.product;
+                        productFoundAlert.style.display = 'block';
+                        
+                        // Populate DataGrid with product details
+                        productDetails.innerHTML = `
+                            <tr>
+                                <td><strong>Product:</strong></td>
+                                <td>${data.product_info.product}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Product Code:</strong></td>
+                                <td>${data.product_info.code}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Version:</strong></td>
+                                <td>${data.product_info.version_string || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Major Version:</strong></td>
+                                <td>${data.product_info.major || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Service Update:</strong></td>
+                                <td>${data.product_info.su !== null ? `SU${data.product_info.su}` : (data.product_info.su === 0 ? 'GA' : 'N/A')}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Build Number:</strong></td>
+                                <td>${data.product_info.build || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Unrestricted:</strong></td>
+                                <td>${data.has_unrst_warning ? 'Yes' : 'No'}</td>
+                            </tr>
+                        `;
+                    } else {
+                        // Hide product info card if no product detected
+                        productInfoSection.style.display = 'none';
+                        productFoundAlert.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.log('Error fetching product info:', error);
+                });
+        }
+        
+        
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('isoFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+            
+            if (!file.name.toLowerCase().endsWith('.iso')) {
+                alert('Please select an ISO file');
+                return;
+            }
+            
+            // Show progress section
+            document.getElementById('progressSection').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'none';
+            document.getElementById('uploadBtn').disabled = true;
+            
+            // Show file upload progress
+            document.getElementById('fileUploadProgress').style.display = 'block';
+            updateFileUploadProgress(0, 0, file.size);
+            
+            // Start step polling and immediately show upload step as in progress
+            startStepPolling();
+            
+            // Hide product info initially
+            document.getElementById('productInfoSection').style.display = 'none';
+            document.getElementById('productFoundAlert').style.display = 'none';
+            
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // Create XMLHttpRequest
+            const xhr = new XMLHttpRequest();
+            
+            // Track upload progress
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    updateFileUploadProgress(percent, e.loaded, e.total);
+                }
+            });
+            
+            // Use XMLHttpRequest for upload
+            xhr.open('POST', '/upload', true);
+            
+            xhr.onload = function() {
+                
+                if (xhr.status === 200) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        
+                        // Update product info
+                        updateProductInfo();
+                        
+                        // Hide file upload progress
+                        document.getElementById('fileUploadProgress').style.display = 'none';
+                        
+                        // Update steps one final time and then stop polling after a delay
+                        updateSteps();
+                        setTimeout(() => {
+                            stopStepPolling();
+                            document.getElementById('uploadBtn').disabled = false;
+                        }, 2000); // Wait 2 seconds to show final state
+                        
+                        if (data.success) {
+                            // Show results below
+                            document.getElementById('outputFileName').value = data.output_file;
+                            document.getElementById('resultsSection').style.display = 'block';
+                            
+                            // Setup download button
+                            document.getElementById('downloadBtn').onclick = function() {
+                                window.location.href = data.download_url;
+                            };
+                        } else {
+                            // Show error below
+                            document.getElementById('errorMessage').textContent = data.error;
+                            document.getElementById('errorSection').style.display = 'block';
+                        }
+                    } catch (e) {
+                        // Handle JSON parse error
+                        document.getElementById('errorMessage').textContent = 'Invalid response from server';
+                        document.getElementById('errorSection').style.display = 'block';
+                    }
+                } else {
+                    // Handle HTTP error
+                    document.getElementById('errorMessage').textContent = 'Server error: ' + xhr.status;
+                    document.getElementById('errorSection').style.display = 'block';
+                }
+            };
+            
+            xhr.onerror = function() {
+                // Hide file upload progress
+                document.getElementById('fileUploadProgress').style.display = 'none';
+                
+                // Update steps one final time and then stop polling after a delay
+                updateSteps();
+                setTimeout(() => {
+                    stopStepPolling();
+                    document.getElementById('uploadBtn').disabled = false;
+                }, 2000);
+                
+                // Show error below
+                document.getElementById('errorMessage').textContent = 'Network error occurred';
+                document.getElementById('errorSection').style.display = 'block';
+            };
+            
+            // Send the request
+            xhr.send(formData);
+        });
+    </script>
+</body>
+</html>
